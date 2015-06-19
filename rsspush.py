@@ -9,14 +9,8 @@ from feedgen.feed import FeedGenerator
 class RssPush(BotPlugin):
     """RssPush plugin for Err"""
 
-    @botcmd
-    def add(self, msg, args):
-        """Say hello to the world"""
-        return "Hello, world!\n"
-
     @re_botcmd(pattern=r"^http(|$)", prefixed=False, flags=re.IGNORECASE)
     def listen_for_urls(self, msg, match):
-        """Talk of cookies gives Err a craving..."""
         url = re.findall('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', str(msg))
 
         p = re.compile('\/(.*)')
@@ -29,7 +23,22 @@ class RssPush(BotPlugin):
 
             fg = FeedGenerator()
 
-            soup = BeautifulSoup(urllib2.urlopen(url))
+            # Some pages block urllib2 so we need a fake user agent
+            header = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+                   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                   'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+                   'Accept-Encoding': 'none',
+                   'Accept-Language': 'en-US,en;q=0.8',
+                   'Connection': 'keep-alive'}
+
+            req = urllib2.Request(url, headers=header)
+
+            try:
+                soup = BeautifulSoup(urllib2.urlopen(req))
+            except urllib2.HTTPError, e:
+                print e.fp.read()
+                yield "Error while parsing the website..."
+
 
             if os.path.isfile(filename):
                 fg.from_rss(filename)
@@ -52,5 +61,5 @@ class RssPush(BotPlugin):
 
             fg.rss_file(filename)
 
-            yield url + ' from ' + user + ' (rss updated)'
+            yield title + ' from ' + user + ' (rss updated)'
 
